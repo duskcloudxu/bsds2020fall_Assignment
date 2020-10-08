@@ -1,3 +1,5 @@
+package com.bsds2020fall.assignment1;
+
 public class Setting {
 
 

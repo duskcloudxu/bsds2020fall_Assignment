@@ -1,4 +1,6 @@
+package com.bsds2020fall.assignment1;
 import io.swagger.client.ApiException;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalTime;
 import org.apache.commons.cli.CommandLine;
@@ -13,7 +15,7 @@ public class Main {
   /*
   *  parse commandline parameters
   * */
-  public static void main(String[] args) throws InterruptedException, ApiException {
+  public static void main(String[] args) throws InterruptedException, ApiException, IOException {
     CommandLineParser parser= new DefaultParser();
 
     // create the Options
@@ -59,7 +61,7 @@ public class Main {
   /*
   *  main stage of program, create threads and monitor the process
   * */
-  public static void execute() throws ApiException, InterruptedException {
+  public static void execute() throws ApiException, InterruptedException, IOException {
     // initialize parameters
     int maxThread = Setting.getNumThread();
     int numStartUpThread = (int) Math.ceil(maxThread / 4.0);
@@ -123,17 +125,44 @@ public class Main {
     ) {
       Thread.sleep(100);
     }
+
     LocalTime endTime = LocalTime.now();
     Duration duration = Duration.between(startTime, endTime);
 
-    System.out.println("Successful Request:");
-    System.out.println(cntInstance.getSuccessfulReq());
-    System.out.println("Failed Request:");
-    System.out.println(cntInstance.getFailedReq());
+    //part 2
+    System.out.println("mean latency for POST");
+    System.out.println(Counter.getInstance().getMeanOfPostRequest()+"ms");
+
+    System.out.println("mean latency for GET");
+    System.out.println(Counter.getInstance().getMeanOfGetRequest()+"ms");
+
+
+    System.out.println("median latency for POST");
+    System.out.println(Counter.getInstance().getMedianOfPostRequest()+"ms");
+
+    System.out.println("median latency for GET");
+    System.out.println(Counter.getInstance().getMedianOfGetRequest()+"ms");
+
     System.out.println("Wall Time:");
     System.out.println(duration.getSeconds());
     System.out.println("Throughput:");
     System.out.println(
       (cntInstance.getFailedReq() + cntInstance.getSuccessfulReq()) / duration.getSeconds());
+    Counter.getInstance().printRecordCSV();
+
+
+
+    System.out.println("P99 for POST");
+    System.out.println(Counter.getInstance().getP99OfPostRequest()+"ms");
+
+    System.out.println("P99 for GET");
+    System.out.println(Counter.getInstance().getP99OfGetRequest()+"ms");
+
+    System.out.println("Max Latency for POST");
+    System.out.println(Counter.getInstance().getMaxLatencyOfPostRequest()+"ms");
+
+    System.out.println("Max Latency for GET");
+    System.out.println(Counter.getInstance().getMaxLatencyGetRequest()+"ms");
+
   }
 }
