@@ -1,61 +1,77 @@
-# Assignment 1
+# Assignment 2
 
 ## Github Repo
 
-https://github.com/duskcloudxu/bsds2020fall_Assignment1
+https://github.com/duskcloudxu/bsds2020fall_Assignment
 
-## Client Part 1 running Screenshot and plot
+**Load Balancer Address**
 
-| numThread\metric | Successful Request | Failed Request | Wall Time(Sec) | Throughput(per Sec) |
-| ---------------- | :----------------- | -------------- | -------------- | ------------------- |
-| 32               | 5080               | 0              | 21             | 241                 |
-| 64               | 10160              | 0              | 34             | 298                 |
-| 128              | 20320              | 0              | 33             | 615                 |
-| 256              | 40541              | 99             | 45             | 903                 |
-
-![image-20201007182247677](https://tva1.sinaimg.cn/large/007S8ZIlly1gjhnyv9cnoj319a0u0duv.jpg)
-
-### Plot
-
-#### ![image-20201007142738462](https://tva1.sinaimg.cn/large/007S8ZIlly1gjhh666vwlj312q0tuq4d.jpg)
-
-## Client Part 2 
-
-| numThread\metric | Mean Post Latency | Mean Get Latency | Median Post Latency | Median Get Latency | Wall Time(Sec) | Throughput(per Sec) | P99 of Post | P99 of Get | Max Response of Post | Max Response of Get |
-| ---------------- | :---------------- | ---------------- | ------------------- | ------------------ | -------------- | ------------------- | ----------- | ---------- | -------------------- | ------------------- |
-| 32               | 98                | 91               | 92                  | 91                 | 21             | 241                 | 205         | 197        | 657                  | 204                 |
-| 64               | 102               | 118              | 93                  | 91                 | 32             | 317                 | 527         | 994        | 1021                 | 1059                |
-| 128              | 109               | 100              | 93                  | 92                 | 32             | 635                 | 640         | 326        | 4382                 | 1503                |
-| 256              | 180               | 148              | 99                  | 96                 | 46             | 883                 | 2131        | 1083       | 11573                | 10783               |
-
-![image-20201007183626396](https://tva1.sinaimg.cn/large/007S8ZIlly1gjhod26xioj31ky0u0k82.jpg)
-
-**Plot of throughput, meanResponseTimeGet and mean ResponseTimePost against number of threads**
-
-![image-20201007195235726](https://tva1.sinaimg.cn/large/007S8ZIlly1gjhqkaebk2j30zq0u0q4w.jpg)
-
-- A CSV file named "record_output.csv" would be generated at the root directory, which contains the information of every request, namely start time, request type, latency and reponse model
-  - ![image-20201007163731772](https://tva1.sinaimg.cn/large/007S8ZIlly1gjhkxbcw3uj31280p843w.jpg)
-
-## Break Things
-
-- result intefered by network traffic *(run client locally and server remotely)*
-
-  when numThread comes to 256 or above, it would be heavily interfered by network traffic. Number of failed Request varies depending on when you run it. For example, result of midnight is usually better than result of afternoon. It still holds even if you changed the maxthread in your tomcat server
-
-- Break server with 1000+ threads
-
-  tried to run the client with`maxThread=1024`, and caused server crashed. All the queries to the server return time out error, and cannot use ssh to connect and restart the server. Finally figured out this problem by completely shutting down and restart the EC2 instance.
+```bash
+http://assignment2-2130851594.us-east-1.elb.amazonaws.com//remoteServer_war/
+```
 
 ## Project Structure
 
-![image-20201007200356138](https://tva1.sinaimg.cn/large/007S8ZIlly1gjhqw371g9j31bq0s8tej.jpg)
+![image-20201105233136280](https://tva1.sinaimg.cn/large/0081Kckwly1gkfhll1lngj30uw0s2wi6.jpg)
 
 ## Overview
 
-- `Setting`: **a static class** stores all necessary parameters, like serverURL, resortID and dayID etc. Those parameters come with default value accroding to the assignment description, and would be referenced by other component. In this way, we reduce the structure complexity by avoiding passing same value from component to component.
-- `Main`: **Entrance** of program, parse parameters and update those parameters into `Setting`, create and start threads to execute requests of three phases.  With support of *apache cli* library, it supports standard style of commendline input. (e.g. `-T 256 -S 20000 -L 40`). 
-- `Phase`: **Enum** to represent 3 different phase for tagging threads of different phases.
-- `WorkerThread`: **Subclass** of Thread, execute requests to the server and monitor status of each requests. All the failed requests would be logged and reported to `Counter`.
-- `Counter`: **a *thread-safe* class** under *single instance* design.  It manage the state of threads, requests and request records (e.g. number of failed requests, number of start-up phase threads finished) . Also it would calculate the metrics in the end of the program and return corresponding data to `Main`.
-- `RequestRecord`: **a *model* class** to store necessary information for a request record(start time, type(post or get), latency and returned status code)
+- **DBManager**
+  - DB use JDBC to create databse connection and return query result as `ResultSet`
+- **ResortDao, LiftRideDao**
+  - Class interact with database using database manager, **ResortDao** implement function for `/resort` API and **LiftRideDao** implement function regarding `/skier` API
+- **ResortServlet, SkierServlet**
+  - Response corresponding URL based on the service provided by class in package`dao`
+
+## Workflow
+
+- Request would receive by the corresponding servlet, and servlet would call the related function in dao layer to insert data into database or query data from database
+  - Data would be returned in the form of `ResultSet` class and we use `GSON` to parse the result and transfer it into JSON format, and forward it into response and return.
+
+## Update from last assignment
+
+I replaced the while loop with CountdownLatch and add unit in wall time as suggested. It's definitely an improvement in design yet does not help much on the total wall time(accelerated around 5-6 seconds in wall time). 
+
+I've  Due to the time limit, I have to submit this assignment though I am not satisfied with the current performance. A guess is that it might caused by my network and it could help if I could run this project on the EC2 instance. *(I asked my friend to query on my server and he got a far better performance using client in his local environment, and I used his client on my server in my local environment but only got the same bad performance as my client. )* The blocker for that idea is that I could not create executable jar file using maven after hours research on that. Maybe I would switch to Gradle in next assignment.
+
+## Performance with single server 
+
+| numThread\metric | Mean Post Latency(ms) | Mean Get Latency(ms) | Median Post Latency(ms) | Median Get Latency(ms) | Wall Time(Sec) | Throughput(per Sec) | P99 of Post | P99 of Get | Max Response of Post | Max Response of Get |
+| ---------------- | :-------------------- | -------------------- | ----------------------- | ---------------------- | -------------- | ------------------- | ----------- | ---------- | -------------------- | ------------------- |
+| 32               | 258                   | 187                  | 252                     | 169                    | 425            | 113                 | 447         | 337        | 5126                 | 383                 |
+| 64               | 307                   | 287                  | 336                     | 270                    | 726            | 133                 | 520         | 628        | 2644                 | 834                 |
+| 128              | 564                   | 757                  | 618                     | 519                    | 1230           | 157                 | 1168        | 2123       | 2649                 | 2208                |
+| 256              | 1151                  | 1506                 | 1222                    | 961                    | 2341           | 165                 | 2594        | 4472       | 11032                | 6369                |
+
+![image-20201105164219721](https://tva1.sinaimg.cn/large/0081Kckwly1gkf5rst3m6j31pg0u0tsk.jpg)
+
+**Plot of throughput, meanResponseTimeGet and mean ResponseTimePost against number of threads**
+
+![image-20201105200341950](https://tva1.sinaimg.cn/large/0081Kckwly1gkfbl7bvdlj30k00bygqa.jpg)
+
+
+
+## Performance with load balancer
+
+In this section, I added 4 free-tier EC2 instance, and there is significant improvement in server performance.
+
+| numThread\metric | Mean Post Latency(ms) | Mean Get Latency(ms) | Median Post Latency(ms) | Median Get Latency(ms) | Wall Time(Sec) | Throughput(per Sec) | P99 of Post | P99 of Get | Max Response of Post | Max Response of Get |
+| ---------------- | :-------------------- | -------------------- | ----------------------- | ---------------------- | -------------- | ------------------- | ----------- | ---------- | -------------------- | ------------------- |
+| 32               | 138                   | 209                  | 127                     | 117                    | 266            | 181                 | 292         | 724        | 3189                 | 778                 |
+| 64               | 144                   | 154                  | 132                     | 130                    | 400            | 241                 | 314         | 323        | 1435                 | 778                 |
+| 128              | 194                   | 447                  | 180                     | 166                    | 506            | 382                 | 430         | 1759       | 4844                 | 2658                |
+| 256              | 300                   | 1670                 | 275                     | 235                    | 759            | 509                 | 754         | 7424       | 10822                | 7580                |
+
+![image-20201105223502607](https://tva1.sinaimg.cn/large/0081Kckwly1gkffyscldyj31na0u0wxn.jpg)
+
+![image-20201105223948879](https://tva1.sinaimg.cn/large/0081Kckwly1gkfg3n49jhj30k00byaem.jpg)
+
+## Bonus Point
+
+- I tried to run 512 threads client with 4 EC2-instance-cluster, and the bandwidth would be too large as there are many timeout requests. I made a horizontal scaling by adding another 4 ec2 instance into the cluster, and it works better now, in the end the static for 512 threads client as below:
+
+  ![image-20201105234543076](https://tva1.sinaimg.cn/large/0081Kckwly1gkfi07asfbj30bo0kiwfu.jpg)
+
+## P.S.
+
+In order to prevent costing too much aws credits, I will shutdown all the extra ec2 instance in the cluster after I submit this report, so please let me know if you want to test my server performance.

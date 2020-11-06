@@ -5,7 +5,7 @@
   version="4.0">
   <servlet>
     <servlet-name>SkiersServlet</servlet-name>
-    <servlet-class>SkiersServlet</servlet-class>
+    <servlet-class>servlets.SkiersServlet</servlet-class>
   </servlet>
 
   <servlet-mapping>
@@ -15,7 +15,7 @@
 
   <servlet>
     <servlet-name>ResortServlet</servlet-name>
-    <servlet-class>ResortServlet</servlet-class>
+    <servlet-class>servlets.ResortServlet</servlet-class>
   </servlet>
 
   <servlet-mapping>

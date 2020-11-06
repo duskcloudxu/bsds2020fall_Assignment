@@ -5,6 +5,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -52,6 +53,8 @@ public class Counter {
         break;
       }
     }
+    System.out.println("current status:");
+    System.out.printf("%d %d %d\n",phase1CompleteNum.get(),phase2CompleteNum.get(),phase3CompleteNum.get());
   }
 
   /*
@@ -75,8 +78,8 @@ public class Counter {
   /*
    *  add successfulReq by 1
    * */
-  public void addSuccessfulReq() {
-    successfulReq.addAndGet(1);
+  public void addSuccessfulReq(int num) {
+    successfulReq.addAndGet(num);
   }
 
   /*
@@ -90,8 +93,8 @@ public class Counter {
   /*
    *  add failedReq by 1
    * */
-  public void addFailedReq() {
-    failedReq.addAndGet(1);
+  public void addFailedReq(int num) {
+    failedReq.addAndGet(num);
   }
 
   /*
@@ -104,8 +107,8 @@ public class Counter {
   /*
    *  add response Time
    * */
-  public synchronized void addResRecord(RequestRecord requestRecord) {
-    records.add(requestRecord);
+  public synchronized void addResRecord(List<RequestRecord> requestRecord) {
+    records.addAll(requestRecord);
   }
 
   /*

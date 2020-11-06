@@ -3,6 +3,7 @@ import io.swagger.client.ApiException;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.concurrent.CountDownLatch;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -68,7 +69,8 @@ public class Main {
     int numSkierInterval = Setting.getNumSkier() / numStartUpThread;
     LocalTime startTime = LocalTime.now();
     Counter cntInstance = Counter.getInstance();
-
+    CountDownLatch doneSignalStartUp = new CountDownLatch(numStartUpThread);
+    CountDownLatch partialDSStartUp = new CountDownLatch(numStartUpThread/10);
     // start-up phase
     for (int i = 0; i < numStartUpThread; i++) {
       int[] numSkierRange = {i * numSkierInterval, (i + 1) * numSkierInterval - 1};
@@ -76,55 +78,50 @@ public class Main {
         numSkierRange[1] = Setting.getNumSkier();
       }
       int[] timeRange = {1, 90};
-      WorkerThread workerThread = new WorkerThread(numSkierRange, timeRange, 100, 5,
-        Phase.START_UP);
+      WorkerThread workerThread = new WorkerThread(numSkierRange, timeRange, 1000, 5,
+        Phase.START_UP,doneSignalStartUp, partialDSStartUp);
       workerThread.start();
     }
 
     //block until 10% finished
-    while (cntInstance.getCompleteNum(Phase.START_UP) < numStartUpThread / 10) {
-      Thread.sleep(100);
-    }
+    partialDSStartUp.await();
 
     // peak phase
     int numPeakThread = Setting.getNumThread();
     numSkierInterval = Setting.getNumSkier() / numPeakThread;
+    CountDownLatch doneSignalPeak = new CountDownLatch(numPeakThread);
+    CountDownLatch partialDSPeak = new CountDownLatch(numPeakThread/10);
     for (int i = 0; i < numPeakThread; i++) {
       int[] numSkierRange = {i * numSkierInterval, (i + 1) * numSkierInterval - 1};
       if (i == maxThread - 1) {
         numSkierRange[1] = Setting.getNumSkier();
       }
       int[] timeRange = {91, 360};
-      WorkerThread workerThread = new WorkerThread(numSkierRange, timeRange, 100, 5, Phase.PEAK);
+      WorkerThread workerThread = new WorkerThread(numSkierRange, timeRange, 1000, 5, Phase.PEAK,doneSignalPeak,partialDSPeak);
       workerThread.start();
     }
 
     //block until 10% finished
-    while (Counter.getInstance().getCompleteNum(Phase.PEAK) < numPeakThread / 10) {
-      Thread.sleep(100);
-    }
+    partialDSPeak.await();
 
     // closing phase
-    int numClosingThread = numStartUpThread;
-    numSkierInterval = Setting.getNumSkier() / numClosingThread;
-    for (int i = 0; i < numClosingThread; i++) {
+    numSkierInterval = Setting.getNumSkier() / numStartUpThread;
+    CountDownLatch doneSignalClose = new CountDownLatch(numStartUpThread);
+    CountDownLatch partialDSClose = new CountDownLatch(numStartUpThread/10);
+    for (int i = 0; i < numStartUpThread; i++) {
       int[] numSkierRange = {i * numSkierInterval, (i + 1) * numSkierInterval - 1};
-      if (i == numClosingThread - 1) {
+      if (i == numStartUpThread - 1) {
         numSkierRange[1] = Setting.getNumSkier();
       }
       int[] timeRange = {361, 420};
-      WorkerThread workerThread = new WorkerThread(numSkierRange, timeRange, 100, 10,
-        Phase.CLOSING);
+      WorkerThread workerThread = new WorkerThread(numSkierRange, timeRange, 1000, 10,
+        Phase.CLOSING, doneSignalClose,partialDSClose);
       workerThread.start();
     }
 
-    //block before all thread finish
-    while (cntInstance.getCompleteNum(Phase.START_UP) < numStartUpThread
-      || cntInstance.getCompleteNum(Phase.PEAK) < numPeakThread
-      || cntInstance.getCompleteNum(Phase.CLOSING) < numClosingThread
-    ) {
-      Thread.sleep(100);
-    }
+    doneSignalStartUp.await();
+    doneSignalPeak.await();
+    doneSignalClose.await();
 
     LocalTime endTime = LocalTime.now();
     Duration duration = Duration.between(startTime, endTime);
@@ -144,7 +141,7 @@ public class Main {
     System.out.println(Counter.getInstance().getMedianOfGetRequest()+"ms");
 
     System.out.println("Wall Time:");
-    System.out.println(duration.getSeconds());
+    System.out.println(duration.getSeconds()+"S");
     System.out.println("Throughput:");
     System.out.println(
       (cntInstance.getFailedReq() + cntInstance.getSuccessfulReq()) / duration.getSeconds());

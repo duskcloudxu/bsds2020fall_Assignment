@@ -3,7 +3,9 @@ package com.bsds2020fall.assignment1;
 public class Setting {
 
 
-  private static String baseURL = "http://54.227.95.209:8080/remoteServer_war/";
+//  private static String baseURL = "http://54.227.95.209:8080/remoteServer_war/";
+//  private static String baseURL = "http://localhost:8080/remoteServer_war_exploded/";
+  private static String baseURL = "http://assignment2-2130851594.us-east-1.elb.amazonaws.com:8080 /remoteServer_war/";
   private static String resortID = "silverMt";
   private static int dayID = 1;
   private static int numSkier = 50000;
@@ -57,7 +59,7 @@ public class Setting {
   }
 
   public static void setNumThread(int numThread) throws Exception {
-    if(numThread<0 || numThread>256){
+    if(numThread<0 || numThread>512){
       throw new Exception("numThread out of range");
     }
     Setting.numThread = numThread;
