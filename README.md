@@ -1,76 +1,61 @@
-# Assignment 2
+# Assignment 3
 
 ## Github Repo
 
 https://github.com/duskcloudxu/bsds2020fall_Assignment
 
-**Load Balancer Address**
-
-```bash
-http://assignment2-2130851594.us-east-1.elb.amazonaws.com//remoteServer_war/
-```
-
 ## Project Structure
 
-![image-20201105233136280](https://tva1.sinaimg.cn/large/0081Kckwly1gkfhll1lngj30uw0s2wi6.jpg)
+![image-20201125224744906](https://tva1.sinaimg.cn/large/0081Kckwly1gl2kq4p1p6j30u00v3djy.jpg)
 
-## Overview
+## New Added Modules
 
-- **DBManager**
-  - DB use JDBC to create databse connection and return query result as `ResultSet`
-- **ResortDao, LiftRideDao**
-  - Class interact with database using database manager, **ResortDao** implement function for `/resort` API and **LiftRideDao** implement function regarding `/skier` API
-- **ResortServlet, SkierServlet**
-  - Response corresponding URL based on the service provided by class in package`dao`
+- **Listener**
+  - initialization class that would init 10 consumer threads at the setup stage of tomcat server.
+- **DatabasePool, MQChannelPool, DatabaseConnectionFactory, MQChannelFactory**
+  - In *Singleton* design pattern
+  - Pooling mechanism for reusage of expensive resources like database connections and rabbitMQ connections. Greatly Improved the performance
+- **ConsumerThreads**
+  - Threads that intialized in the setup stage of server, comsure post messages from RabbitMQ and write it to the database.
 
-## Workflow
+## Workflow With RabbitMQ
 
-- Request would receive by the corresponding servlet, and servlet would call the related function in dao layer to insert data into database or query data from database
-  - Data would be returned in the form of `ResultSet` class and we use `GSON` to parse the result and transfer it into JSON format, and forward it into response and return.
+- With **RabbitMQ**, we could *split* the database writing and response when we handling the post request. 
+- In previous practice, we write the data to the database, then return the result to the client, and in the case of large network traffic, it's common to have time-out. In this assignment, we *splited* the database writing and the response. Servlet would only check the validity of writing data, and forward it into the RabbitMQ, and return 203 code to the client. In the meanwhile, consumer threads would take message from the RabbitMQ and write it to the database. 
+- One thing worth to mention is that we added connection pool in this version and it brought great improvement in the performance, since connection establishment is always expensive.
 
-## Update from last assignment
+## Edge case Handling
 
-I replaced the while loop with CountdownLatch and add unit in wall time as suggested. It's definitely an improvement in design yet does not help much on the total wall time(accelerated around 5-6 seconds in wall time). 
+- Server or MQ crush
+  - Channel is created as persistent type so even if server or MQ was crushed, the message would still remain in the disk and could be retrieved when the server back online.
+- Thread load balance
+  - Each consumer comes with `channel.basicQos(5);`, which means they would take 5 messages at a time, and the MQ would not assign taks to a comsumer if it does not finish its current tasks.
 
-I've  Due to the time limit, I have to submit this assignment though I am not satisfied with the current performance. A guess is that it might caused by my network and it could help if I could run this project on the EC2 instance. *(I asked my friend to query on my server and he got a far better performance using client in his local environment, and I used his client on my server in my local environment but only got the same bad performance as my client. )* The blocker for that idea is that I could not create executable jar file using maven after hours research on that. Maybe I would switch to Gradle in next assignment.
+## Performance Comparation
 
-## Performance with single server 
+| numThread\metric | Mean Post Latency(ms) | Mean Get Latency(ms) | Median Post Latency(ms) | Median Get Latency(ms) | Wall Time(Sec) |
+| ---------------- | :-------------------- | -------------------- | ----------------------- | ---------------------- | -------------- |
+| 256              | 1151                  | 1506                 | 1222                    | 961                    | 2341           |
 
-| numThread\metric | Mean Post Latency(ms) | Mean Get Latency(ms) | Median Post Latency(ms) | Median Get Latency(ms) | Wall Time(Sec) | Throughput(per Sec) | P99 of Post | P99 of Get | Max Response of Post | Max Response of Get |
-| ---------------- | :-------------------- | -------------------- | ----------------------- | ---------------------- | -------------- | ------------------- | ----------- | ---------- | -------------------- | ------------------- |
-| 32               | 258                   | 187                  | 252                     | 169                    | 425            | 113                 | 447         | 337        | 5126                 | 383                 |
-| 64               | 307                   | 287                  | 336                     | 270                    | 726            | 133                 | 520         | 628        | 2644                 | 834                 |
-| 128              | 564                   | 757                  | 618                     | 519                    | 1230           | 157                 | 1168        | 2123       | 2649                 | 2208                |
-| 256              | 1151                  | 1506                 | 1222                    | 961                    | 2341           | 165                 | 2594        | 4472       | 11032                | 6369                |
+| numThread\metric       | Mean Post Latency(ms) | Mean Get Latency(ms) | Median Post Latency(ms) | Median Get Latency(ms) | Wall Time(Sec) | Throughput(per Sec) | P99 of Post | P99 of Get | Max Response of Post | Max Response of Get |
+| ---------------------- | :-------------------- | -------------------- | ----------------------- | ---------------------- | -------------- | ------------------- | ----------- | ---------- | -------------------- | ------------------- |
+| 256 w/o load balancing | 201                   | 192                  | 175                     | 259                    | 213            | 1513                | 5021        | 6326       | 6031                 | 8185                |
+| 512 w/o load balancing | 221                   | 302                  | 205                     | 291                    | 350            | 2213                | 6091        | 8941       | 9014                 | 10011               |
+| 256 w/ load balancing  | 189                   | 198                  | 181                     | 302                    | 206            | 1590                | 4821        | 5719       | 7420                 | 7503                |
+| 512 w/ load balancing  | 212                   | 415                  | 204                     | 321                    | 339            | 2319                | 5892        | 7992       | 7013                 | 9018                |
 
-![image-20201105164219721](https://tva1.sinaimg.cn/large/0081Kckwly1gkf5rst3m6j31pg0u0tsk.jpg)
+![image-20201125234440896](https://tva1.sinaimg.cn/large/0081Kckwly1gl2mdboe7ej31db0u0ni6.jpg)
 
-**Plot of throughput, meanResponseTimeGet and mean ResponseTimePost against number of threads**
+## Analysis
 
-![image-20201105200341950](https://tva1.sinaimg.cn/large/0081Kckwly1gkfbl7bvdlj30k00bygqa.jpg)
+- Pooling and Message queue greatly improved the server performance, and it made the load balancing an optional choice. We can see from the comparison above that the load balancing did increase the performance but only in a slight scale. However, there should be a better structure, which is to use one powerful instance as the MQ instance and some other instance as the consumer, the consumer cluster could be a elastic group in AWS so it would be flexible enough according to the network traffic situation.
 
+## Exploration and answers
 
-
-## Performance with load balancer
-
-In this section, I added 4 free-tier EC2 instance, and there is significant improvement in server performance.
-
-| numThread\metric | Mean Post Latency(ms) | Mean Get Latency(ms) | Median Post Latency(ms) | Median Get Latency(ms) | Wall Time(Sec) | Throughput(per Sec) | P99 of Post | P99 of Get | Max Response of Post | Max Response of Get |
-| ---------------- | :-------------------- | -------------------- | ----------------------- | ---------------------- | -------------- | ------------------- | ----------- | ---------- | -------------------- | ------------------- |
-| 32               | 138                   | 209                  | 127                     | 117                    | 266            | 181                 | 292         | 724        | 3189                 | 778                 |
-| 64               | 144                   | 154                  | 132                     | 130                    | 400            | 241                 | 314         | 323        | 1435                 | 778                 |
-| 128              | 194                   | 447                  | 180                     | 166                    | 506            | 382                 | 430         | 1759       | 4844                 | 2658                |
-| 256              | 300                   | 1670                 | 275                     | 235                    | 759            | 509                 | 754         | 7424       | 10822                | 7580                |
-
-![image-20201105223502607](https://tva1.sinaimg.cn/large/0081Kckwly1gkffyscldyj31na0u0wxn.jpg)
-
-![image-20201105223948879](https://tva1.sinaimg.cn/large/0081Kckwly1gkfg3n49jhj30k00byaem.jpg)
-
-## Bonus Point
-
-- I tried to run 512 threads client with 4 EC2-instance-cluster, and the bandwidth would be too large as there are many timeout requests. I made a horizontal scaling by adding another 4 ec2 instance into the cluster, and it works better now, in the end the static for 512 threads client as below:
-
-  ![image-20201105234543076](https://tva1.sinaimg.cn/large/0081Kckwly1gkfi07asfbj30bo0kiwfu.jpg)
+- Do I need load balancing? Or can my system work with 1 free-tier (or slightly upgraded) server
+  - if your instance are power enough(i.e. an t3.large instance), you might do not need load balancing. (MQ did the load balancing for you, at the cost of late database writing)
+- How many consumers nodes do I need?
+  - I used 10 consumer threads, and increasing consumer threads would not improve the performance on the ack rate of MQ.
 
 ## P.S.
 
