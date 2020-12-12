@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="server">
+    <output-path>$PROJECT_DIR$/out/artifacts/server</output-path>
+    <root id="archive" name="remoteServer_war.war">
+      <element id="artifact" artifact-name="remoteServer:war exploded" />
+      <element id="library" level="project" name="Maven: mysql:mysql-connector-java:8.0.16" />
+      <element id="library" level="project" name="Maven: com.google.protobuf:protobuf-java:3.6.1" />
+    </root>
+  </artifact>
+</component>
